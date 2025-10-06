@@ -13,6 +13,7 @@ import logging
 from .schemas import (
     BoundingBox, Annotation, ImageAnnotation, Dataset
 )
+from .dice_classes import get_class_id, get_class_name, CLASS_NAMES
 from ..utils import normalize_path, get_image_files
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,10 @@ class DataMuroAdapter:
             raise
         
         # Try different DataMuro formats
-        if 'images' in data and 'annotations' in data:
+        if 'items' in data:
+            # Items-based format (your format!)
+            self._parse_items_format(root_path, data, dataset)
+        elif 'images' in data and 'annotations' in data:
             # COCO-like format
             self._parse_coco_format(root_path, data, dataset)
         elif 'frames' in data:
@@ -104,7 +108,18 @@ class DataMuroAdapter:
     
     def _load_from_directory(self, root_path: Path, dataset: Dataset) -> None:
         """Load annotations from per-image files or discover structure."""
-        # Look for common annotation file names
+        # Look for annotations subdirectory first (common structure)
+        annotations_dir = root_path / 'annotations'
+        if annotations_dir.exists() and annotations_dir.is_dir():
+            logger.info(f"Found annotations directory: {annotations_dir}")
+            # Look for JSON files in annotations directory
+            for ann_file in annotations_dir.glob('*.json'):
+                logger.info(f"Loading annotations from: {ann_file}")
+                self._load_from_central_file(root_path, ann_file, dataset)
+            if dataset.num_images() > 0:
+                return
+        
+        # Look for common annotation file names in root
         common_names = [
             'annotations.json',
             'labels.json',
@@ -234,16 +249,124 @@ class DataMuroAdapter:
             
             dataset.add_image(image_ann)
     
+    def _parse_items_format(self, root_path: Path, data: Dict,
+                           dataset: Dataset) -> None:
+        """Parse items-based annotation format (common in DataMuro exports)."""
+        items = data.get('items', [])
+        
+        # Look for images in common subdirectories
+        images_dir = root_path / 'images'
+        if images_dir.exists():
+            # Try common subdirectory names
+            for subdir_name in ['default', 'images', '']:
+                search_dir = images_dir / subdir_name if subdir_name else images_dir
+                if search_dir.exists():
+                    break
+        else:
+            search_dir = root_path
+        
+        logger.info(f"Processing {len(items)} items from annotations")
+        
+        for item in items:
+            # Get image info
+            img_info = item.get('image', {})
+            img_filename = img_info.get('path') or item.get('id')
+            
+            if not img_filename:
+                continue
+            
+            # Find the actual image file
+            img_path = self._find_image_file(root_path, img_filename, search_dir)
+            if not img_path:
+                logger.warning(f"Image file not found: {img_filename}")
+                continue
+            
+            # Get image dimensions
+            img_size = img_info.get('size', [0, 0])
+            width = img_size[0] if len(img_size) > 0 else 0
+            height = img_size[1] if len(img_size) > 1 else 0
+            
+            image_ann = ImageAnnotation(
+                image_path=img_path,
+                image_id=item.get('id', img_filename),
+                width=width,
+                height=height
+            )
+            
+            # Add annotations
+            annotations = item.get('annotations', [])
+            for ann in annotations:
+                try:
+                    # Only process bbox type annotations
+                    if ann.get('type') == 'bbox':
+                        annotation = self._parse_annotation(ann)
+                        image_ann.add_annotation(annotation)
+                except Exception as e:
+                    logger.warning(f"Failed to parse annotation for {img_filename}: {e}")
+            
+            dataset.add_image(image_ann)
+    
+    def _find_image_file(self, root_path: Path, filename: str, search_dir: Path) -> Optional[Path]:
+        """Find image file in various possible locations."""
+        # Try direct path
+        img_path = search_dir / filename
+        if img_path.exists():
+            return img_path
+        
+        # Try in images/default
+        img_path = root_path / 'images' / 'default' / filename
+        if img_path.exists():
+            return img_path
+        
+        # Try in images
+        img_path = root_path / 'images' / filename
+        if img_path.exists():
+            return img_path
+        
+        # Try in root
+        img_path = root_path / filename
+        if img_path.exists():
+            return img_path
+        
+        # Search recursively as last resort
+        for ext in ['.jpg', '.jpeg', '.png', '.bmp']:
+            stem = Path(filename).stem
+            matches = list(root_path.rglob(f"{stem}{ext}"))
+            if matches:
+                return matches[0]
+        
+        return None
+    
     def _parse_annotation(self, ann_data: Dict) -> Annotation:
         """Parse a single annotation from various formats."""
-        # Extract class information
-        class_name = ann_data.get('class') or ann_data.get('category') or ann_data.get('label')
-        class_id = ann_data.get('category_id')
+        # Extract die type and value from attributes (if present)
+        attributes = ann_data.get('attributes', {})
+        die_type = attributes.get('die type') or attributes.get('die_type')
+        die_value = attributes.get('value')
         
-        if class_id is None and class_name:
-            class_id = self.class_to_id.get(class_name, 0)
-        elif class_id is not None and not class_name:
-            class_name = self.class_names[class_id] if class_id < len(self.class_names) else 'unknown'
+        # Try to get class from die type + value
+        if die_type and die_value is not None:
+            class_id = get_class_id(die_type, die_value)
+            class_name = get_class_name(die_type, die_value)
+            
+            if class_id is None or class_name is None:
+                logger.warning(f"Invalid die type/value: {die_type}={die_value}")
+                # Fallback to background class
+                class_id = 0
+                class_name = 'background'
+        else:
+            # Fallback: try to extract from other fields
+            class_name = ann_data.get('class') or ann_data.get('category') or ann_data.get('label')
+            class_id = ann_data.get('category_id')
+            
+            if class_id is None and class_name:
+                class_id = self.class_to_id.get(class_name, 0)
+            elif class_id is not None and not class_name:
+                class_name = self.class_names[class_id] if class_id < len(self.class_names) else 'unknown'
+            
+            if class_id is None:
+                class_id = 0
+                class_name = 'background'
         
         # Extract bounding box
         bbox = self._parse_bbox(ann_data)
@@ -251,10 +374,10 @@ class DataMuroAdapter:
         # Create annotation
         return Annotation(
             bbox=bbox,
-            class_id=class_id or 0,
-            class_name=class_name or 'unknown',
+            class_id=class_id,
+            class_name=class_name,
             confidence=ann_data.get('score', 1.0),
-            attributes=ann_data.get('attributes', {}),
+            attributes=attributes,
             is_crowd=ann_data.get('iscrowd', False),
             area=ann_data.get('area')
         )

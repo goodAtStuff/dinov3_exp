@@ -2,7 +2,13 @@
 # This file defines datasets, splits, and export settings for the dice detector project
 
 run_id: dice_exp_001
-classes: [dice]
+
+# Multi-class detection: die type + face value (71 classes total)
+# Classes are auto-generated from die types and values
+# Format: background, d4_1, d4_2, ..., d100_100
+# Special cases: d10 value 0→10, d100 value 0→100
+classes: auto  # Will be populated from dice_classes module
+
 label_format: datamuro
 
 # Dataset roots

@@ -14,6 +14,7 @@ import logging
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data import DatasetMerger, DatasetSplitter, COCOExporter, UltralyticsExporter
+from src.data.dice_classes import CLASS_NAMES
 from src.utils import (
     setup_logger,
     load_manifest,
@@ -114,6 +115,13 @@ def main():
         
         run_id = manifest['run_id']
         classes = manifest['classes']
+        
+        # Handle auto-generated class list
+        if classes == 'auto' or (isinstance(classes, list) and len(classes) == 1 and classes[0] == 'auto'):
+            logger.info("Using auto-generated class list (71 classes)")
+            classes = CLASS_NAMES
+            manifest['classes'] = classes  # Update manifest
+        
         label_format = manifest.get('label_format', 'datamuro')
         
         # Override settings from command line

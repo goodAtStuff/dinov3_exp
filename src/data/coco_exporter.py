@@ -94,8 +94,12 @@ class COCOExporter:
             coco_files[split_name] = json_path
             logger.info(f"Exported {len(split_images)} images to {json_path}")
             
-            # Organize images
-            self._organize_images(split_images, split_name)
+            # Organize images (only if copying)
+            if self.copy_images:
+                self._organize_images(split_images, split_name)
+            else:
+                # Create image path list file for Ultralytics
+                self._create_image_list(split_images, split_name)
         
         # Create Ultralytics data YAML
         data_yaml = self._create_data_yaml(dataset.classes, run_id)
@@ -151,8 +155,12 @@ class COCOExporter:
         
         for img_idx, img_ann in enumerate(images):
             # Add image info
-            # Use relative path from images directory
-            rel_path = f"{split_name}/{img_ann.image_path.name}"
+            # Use absolute path if not copying images, otherwise relative path
+            if self.copy_images:
+                file_path = f"{split_name}/{img_ann.image_path.name}"
+            else:
+                # Use absolute path to original image
+                file_path = str(img_ann.image_path.resolve())
             
             # Get actual image dimensions if not available
             width = img_ann.width
@@ -169,7 +177,7 @@ class COCOExporter:
             
             image_info = {
                 'id': img_idx,
-                'file_name': rel_path,
+                'file_name': file_path,
                 'width': width,
                 'height': height,
             }
@@ -244,6 +252,110 @@ class COCOExporter:
         except Exception:
             return False
     
+    def _create_image_list(self, images: List[ImageAnnotation], 
+                          split_name: str) -> None:
+        """
+        Create text file with image paths and YOLO format labels for Ultralytics.
+        
+        When not copying images, this creates:
+        - {split}.txt with image paths
+        - Label files in parallel to images (images/ -> labels/)
+        
+        Args:
+            images: List of images
+            split_name: Split name (train/val/test)
+        """
+        # Create image list file
+        list_path = self.output_dir / f'{split_name}.txt'
+        
+        logger.info(f"Creating image list and labels for {split_name}")
+        
+        label_dirs_created = set()
+        
+        with open(list_path, 'w', encoding='utf-8') as f:
+            for img_ann in images:
+                # Write absolute path to image
+                img_path = img_ann.image_path.resolve()
+                f.write(f"{str(img_path)}\n")
+                
+                # Create label path by replacing 'images' with 'labels'
+                # and changing extension to .txt
+                label_path = self._get_label_path(img_path)
+                
+                # Ensure label directory exists
+                label_dir = label_path.parent
+                if label_dir not in label_dirs_created:
+                    ensure_dir(label_dir)
+                    label_dirs_created.add(label_dir)
+                
+                self._write_yolo_label(img_ann, label_path)
+        
+        logger.info(f"Wrote {len(images)} image paths to {list_path}")
+        logger.info(f"Created labels in {len(label_dirs_created)} directories")
+    
+    def _get_label_path(self, image_path: Path) -> Path:
+        """
+        Get label path for an image by replacing 'images' with 'labels'.
+        
+        Args:
+            image_path: Path to image file
+            
+        Returns:
+            Path to label file
+        """
+        # Convert path to string for manipulation
+        path_str = str(image_path)
+        
+        # Replace 'images' with 'labels' in the path
+        if '\\images\\' in path_str:
+            label_str = path_str.replace('\\images\\', '\\labels\\')
+        elif '/images/' in path_str:
+            label_str = path_str.replace('/images/', '/labels/')
+        else:
+            # Fallback: put labels next to images
+            label_str = str(image_path.parent / 'labels' / image_path.name)
+        
+        # Change extension to .txt
+        label_path = Path(label_str).with_suffix('.txt')
+        
+        return label_path
+    
+    def _write_yolo_label(self, img_ann: ImageAnnotation, label_path: Path) -> None:
+        """
+        Write YOLO format label file.
+        
+        Format: class_id center_x center_y width height (normalized to [0, 1])
+        
+        Args:
+            img_ann: Image annotation
+            label_path: Path to save label file
+        """
+        with open(label_path, 'w') as f:
+            for ann in img_ann.annotations:
+                # Get bbox in center format
+                cx, cy, w, h = ann.bbox.to_cxcywh()
+                
+                # Normalize to [0, 1]
+                if img_ann.width > 0 and img_ann.height > 0:
+                    cx_norm = cx / img_ann.width
+                    cy_norm = cy / img_ann.height
+                    w_norm = w / img_ann.width
+                    h_norm = h / img_ann.height
+                else:
+                    # Fallback if dimensions unknown
+                    logger.warning(f"Unknown dimensions for {img_ann.image_path}, skipping label")
+                    continue
+                
+                # Clip to [0, 1] range (handle any edge cases)
+                cx_norm = max(0.0, min(1.0, cx_norm))
+                cy_norm = max(0.0, min(1.0, cy_norm))
+                w_norm = max(0.0, min(1.0, w_norm))
+                h_norm = max(0.0, min(1.0, h_norm))
+                
+                # Write line: class_id cx cy w h
+                f.write(f"{ann.class_id} {cx_norm:.6f} {cy_norm:.6f} "
+                       f"{w_norm:.6f} {h_norm:.6f}\n")
+    
     def _create_data_yaml(self, classes: List[str], run_id: str) -> Dict[str, Any]:
         """
         Create Ultralytics data YAML configuration.
@@ -255,15 +367,29 @@ class COCOExporter:
         Returns:
             Data YAML dictionary
         """
-        data_yaml = {
-            'path': str(self.output_dir.resolve()),
-            'train': 'images/train',
-            'val': 'images/val',
-            'test': 'images/test',
-            'names': {idx: name for idx, name in enumerate(classes)},
-            'nc': len(classes),
-            'run_id': run_id,
-        }
+        if self.copy_images:
+            # Use relative paths when images are copied
+            data_yaml = {
+                'path': str(self.output_dir.resolve()),
+                'train': 'images/train',
+                'val': 'images/val',
+                'test': 'images/test',
+                'names': {idx: name for idx, name in enumerate(classes)},
+                'nc': len(classes),
+                'run_id': run_id,
+            }
+        else:
+            # When not copying images, use image list with labels in output dir
+            # Create parallel label directory structure
+            data_yaml = {
+                'path': str(self.output_dir.resolve()),
+                'train': 'train.txt',  # File with image paths
+                'val': 'val.txt',
+                'test': 'test.txt',
+                'names': {idx: name for idx, name in enumerate(classes)},
+                'nc': len(classes),
+                'run_id': run_id,
+            }
         
         return data_yaml
     
