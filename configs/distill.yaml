@@ -1,0 +1,62 @@
+# Distillation Configuration
+# Settings for DINOv3 → YOLOv12 knowledge distillation
+
+# Teacher model (DINOv3)
+teacher:
+  model: dinov3_b  # dinov3_s, dinov3_b, dinov3_l, dinov3_g
+  pretrained: true
+  freeze: true
+  feature_layers: [3, 7, 11]  # Which layers to extract features from
+
+# Student model (YOLOv12)
+student:
+  model: yolov12n  # yolov12n, yolov12s, yolov12m, yolov12l, yolov12x
+  backbone_only: true
+  feature_layers: [2, 4, 6]  # Corresponding student layers
+
+# Distillation loss
+loss:
+  type: cosine  # cosine, l2, or both
+  layer_weights: [1.0, 1.0, 1.0]  # Per-layer loss weights
+  temperature: 4.0
+  alpha: 0.5  # Balance between losses if using both
+
+# Training hyperparameters
+training:
+  epochs: 50
+  batch_size: 32
+  imgsz: 640
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 3
+  optimizer: adamw  # adam, adamw, sgd
+  scheduler: cosine  # cosine, step, linear
+  
+  # Mixed precision and optimization
+  amp: true
+  gradient_clip: 10.0
+  accumulate_grad: 1
+
+# Data augmentation
+augmentation:
+  enabled: true
+  random_flip: 0.5
+  random_crop: true
+  color_jitter: 0.3
+  random_grayscale: 0.1
+  gaussian_blur: 0.1
+
+# Lightly Train integration (optional)
+lightly:
+  enabled: false
+  project: ''
+  dataset: ''
+  api_token_env: LIGHTLY_TOKEN
+
+# Logging and checkpointing
+logging:
+  log_interval: 10  # Log every N batches
+  save_interval: 5  # Save checkpoint every N epochs
+  save_best: true
+  metric: loss  # Metric to track for best model
+

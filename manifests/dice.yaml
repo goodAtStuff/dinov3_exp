@@ -1,0 +1,84 @@
+# Dice Detection Experiment Manifest
+# This file defines datasets, splits, and export settings for the dice detector project
+
+run_id: dice_exp_001
+classes: [dice]
+label_format: datamuro
+
+# Dataset roots
+# Paths from ExtraplanarLabsSite/Model directory
+roots:
+  labeled:
+    # Simulated datasets (JPG compressed versions)
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/4k_multi_angle_jpg_90
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/1080p_multi_angle_wide_1k_jpg_90
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/4k_inclusion_1k_2_jpg_90
+    
+    # Real datasets - Base/aggregate
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/Dice_roll_aggregate_6_train
+    
+    # Real datasets - Simple dice sets
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/purple_marble_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/white_marble_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/blue_marble_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/red_and_white_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/translucent_lavender_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/translucent_green_sparkle_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/red_and_clear_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/yellow_orange_blend_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/translucent_black_labeled
+    
+    # Real datasets - Exotic dice sets
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/pink_glitter_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/silver_glitter_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/clear_fish_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/raw_test_combined_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/purple_glitter_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/clear_rainbow_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/metal_blue_silver_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/metal_iridescent_labeled
+    
+    # Real datasets - Inclusion dice
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/panda_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/dino_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/red_ghost_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/shell_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/dark_koi_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/black_swan_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/clear_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/red_glitter_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/gold_glitter_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/pink_glitter_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/milk_inclusion_labeled
+    
+    # Real datasets - Metal dice
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/metal_copper_skeleton_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/metal_gold_black_labeled
+    
+    # Real datasets - Misc
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/white_blue_smear_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/dino_skull_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/white_ghost_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/monkey_skull_inclusion_labeled
+    - path: E:/source/repos/ExtraplanarLabsSite/Model/data/apple_inclusion_labeled
+    
+    # Note: Real datasets are weighted 3x in original code (datasets = simulated + 3*real)
+    # The deduplication system will handle any duplicates automatically
+  
+  unlabeled:
+    # Add any unlabeled datasets here if available
+    # Example: - path: E:/source/repos/ExtraplanarLabsSite/Model/data/unlabeled_images
+
+# Split configuration
+splits:
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+
+# Random seed for reproducibility
+seed: 42
+
+# Export format (coco, ultralytics, or datamuro)
+export:
+  format: coco
+

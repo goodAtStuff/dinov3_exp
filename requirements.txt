@@ -1,0 +1,36 @@
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+# Note: Install PyTorch with CUDA support using:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+# Object Detection
+ultralytics>=8.0.0
+
+# Self-Supervised Learning
+lightly>=1.4.0
+
+# Computer Vision and Image Processing
+opencv-python>=4.8.0
+albumentations>=1.3.0
+Pillow>=10.0.0
+
+# Data Handling
+numpy>=1.24.0
+pandas>=2.0.0
+PyYAML>=6.0
+
+# Utilities
+tqdm>=4.65.0
+pycocotools>=2.0.6
+
+# Logging and Experiment Tracking
+tensorboard>=2.13.0
+
+# Development and Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# DINOv3 Support (optional - may need to install from source)
+# timm>=0.9.0  # For vision transformers if needed
+

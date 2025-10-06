@@ -1,0 +1,28 @@
+# Dataset Configuration
+# Default settings for dataset building and processing
+
+# Image preprocessing
+image:
+  max_size: 1920  # Maximum image dimension (resize if larger)
+  min_size: 224   # Minimum image dimension (skip if smaller)
+  formats: ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']
+
+# Deduplication
+deduplication:
+  enabled: true
+  hash_algorithm: md5  # md5, sha256
+
+# Split validation
+validation:
+  min_train_samples: 10
+  min_val_samples: 3
+  min_test_samples: 3
+  warn_class_imbalance: true
+  max_imbalance_ratio: 10.0
+
+# Export settings
+export:
+  include_visualization: true
+  max_viz_samples: 100
+  save_split_manifests: true
+

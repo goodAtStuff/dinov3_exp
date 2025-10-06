@@ -1,0 +1,54 @@
+# Testing/Evaluation Configuration
+# Settings for model evaluation and inference
+
+# Model
+model:
+  weights: null  # Path to trained model weights (required)
+  task: detect  # detect, segment, classify
+
+# Test settings
+test:
+  imgsz: 640
+  batch: 16
+  conf: 0.001  # Object confidence threshold
+  iou: 0.6    # IoU threshold for NMS
+  max_det: 300  # Maximum detections per image
+  
+  # Augmentation (TTA - Test Time Augmentation)
+  augment: false
+  
+# Outputs
+output:
+  save_json: true  # Save results in COCO JSON format
+  save_hybrid: false  # Save labels + predictions
+  save_conf: false  # Save confidences
+  save_txt: false  # Save results to *.txt
+  save_crop: false  # Save cropped prediction boxes
+  plots: true  # Generate and save plots (PR curve, confusion matrix)
+  show_labels: true  # Show labels on plots
+  show_conf: true  # Show confidences on plots
+  show_boxes: true  # Show boxes on plots
+  
+# Metrics
+metrics:
+  # IoU thresholds for mAP calculation
+  iou_thresholds: [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+  # Area ranges for COCO-style evaluation (optional)
+  # area_ranges: [[0, 10000000000], [0, 1024], [1024, 9216], [9216, 10000000000]]
+  
+# Device and performance
+device: ''  # CUDA device (empty for auto, 0 or cpu)
+workers: 8
+verbose: true
+project: runs/detect
+name: test
+exist_ok: false
+
+# Inference performance profiling
+profile:
+  enabled: false
+  warmup: 10  # Warmup iterations
+  iterations: 100  # Profile iterations
+  compute_latency: true
+  compute_throughput: true
+
